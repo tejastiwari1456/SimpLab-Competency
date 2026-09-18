@@ -211,3 +211,32 @@ export interface LoginFormData {
   role?: UserRole;
 }
 
+export type MilestoneTier = 'bronze' | 'silver' | 'gold' | 'platinum';
+
+export interface CompetencyMilestone {
+  id: string;
+  title: string;
+  shortTitle: string;
+  competencyKey: CompetencyKey | 'overall';
+  threshold: number; // e.g. 75, 80, 85, 90, 95
+  tier: MilestoneTier;
+  categoryLabel: string;
+  description: string;
+  skillCriteria: string;
+  recommendedExperimentId?: string;
+  badgeColor: 'amber' | 'emerald' | 'indigo' | 'purple' | 'rose' | 'cyan';
+  accreditationCode: string;
+  iconName: 'target' | 'ruler' | 'shield' | 'award' | 'zap' | 'sparkles' | 'compass' | 'cpu';
+}
+
+export interface StudentMilestoneStatus {
+  milestone: CompetencyMilestone;
+  isUnlocked: boolean;
+  currentScore: number;
+  threshold: number;
+  progressPercentage: number;
+  pointsNeeded: number;
+  unlockedAt?: string;
+  credentialCode: string;
+}
+

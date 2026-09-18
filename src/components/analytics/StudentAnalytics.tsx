@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Award,
   TrendingUp,
@@ -9,8 +9,11 @@ import {
   ShieldCheck,
   Target,
 } from 'lucide-react';
-import { CompetencyKey, COMPETENCY_DIMENSIONS, StudentSubmission } from '../../types';
+import { CompetencyKey, COMPETENCY_DIMENSIONS, StudentSubmission, StudentMilestoneStatus } from '../../types';
 import { CompetencyRadar } from './CompetencyRadar';
+import { COMPETENCY_MILESTONES, getMilestoneStatuses } from '../../data/milestonesData';
+import { DigitalBadgeEmblem } from '../badges/DigitalBadgeEmblem';
+import { DigitalBadgeModal } from '../badges/DigitalBadgeModal';
 
 interface StudentAnalyticsProps {
   submissions: StudentSubmission[];
@@ -25,6 +28,15 @@ export const StudentAnalytics: React.FC<StudentAnalyticsProps> = ({
   classAverageScores,
   isDark = false,
 }) => {
+  const [selectedMilestone, setSelectedMilestone] = useState<StudentMilestoneStatus | null>(null);
+
+  const milestoneStatuses = getMilestoneStatuses(
+    COMPETENCY_MILESTONES,
+    activeScores,
+    'Aarav Sharma',
+    'STU-2026-081'
+  );
+
   // Aggregate overall weighted mastery
   const overallMastery = Math.round(
     (Object.keys(COMPETENCY_DIMENSIONS) as CompetencyKey[]).reduce(
@@ -97,14 +109,24 @@ export const StudentAnalytics: React.FC<StudentAnalyticsProps> = ({
               const avg = classAverageScores?.[key] ?? 70;
               const isAhead = score >= avg;
 
+              const dimensionMilestones = milestoneStatuses.filter(
+                (m) => m.milestone.competencyKey === key
+              );
+              const highestEarned = dimensionMilestones
+                .filter((m) => m.isUnlocked)
+                .sort((a, b) => b.threshold - a.threshold)[0];
+              const nextMilestone = dimensionMilestones
+                .filter((m) => !m.isUnlocked)
+                .sort((a, b) => a.threshold - b.threshold)[0];
+
               let barColor = 'bg-amber-500';
               if (score >= 85) barColor = 'bg-emerald-500';
               else if (score < 70) barColor = 'bg-rose-500';
 
               return (
-                <div key={key} className="space-y-1">
+                <div key={key} className="space-y-1.5 p-2 rounded-lg border border-stone-100 dark:border-stone-800/80 bg-stone-50/40 dark:bg-stone-850/40">
                   <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="font-bold text-stone-900 dark:text-stone-100">{dim.label}</span>
                       {isAhead ? (
                         <span className="rounded bg-emerald-50 dark:bg-emerald-950/70 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
@@ -115,12 +137,35 @@ export const StudentAnalytics: React.FC<StudentAnalyticsProps> = ({
                           -{(avg - score).toFixed(0)}% vs Class
                         </span>
                       )}
+
+                      {/* Earned Milestone Badge Chip */}
+                      {highestEarned && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedMilestone(highestEarned)}
+                          className="inline-flex items-center gap-1 rounded-md bg-amber-100 dark:bg-amber-950/80 px-1.5 py-0.5 text-[10px] font-bold text-amber-900 dark:text-amber-300 border border-amber-300/80 dark:border-amber-800 hover:scale-102 transition-transform cursor-pointer"
+                        >
+                          <Award className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                          <span>{highestEarned.milestone.shortTitle}</span>
+                        </button>
+                      )}
                     </div>
-                    <span className="font-mono font-bold text-stone-900 dark:text-stone-100">{score}%</span>
+
+                    <div className="flex items-center gap-2">
+                      {nextMilestone && (
+                        <span
+                          onClick={() => setSelectedMilestone(nextMilestone)}
+                          className="text-[10px] text-stone-500 dark:text-stone-400 hover:text-amber-600 dark:hover:text-amber-400 cursor-pointer hidden sm:inline"
+                        >
+                          Next: {nextMilestone.milestone.shortTitle} ({nextMilestone.pointsNeeded}% to go)
+                        </span>
+                      )}
+                      <span className="font-mono font-bold text-stone-900 dark:text-stone-100">{score}%</span>
+                    </div>
                   </div>
 
                   {/* Progress track */}
-                  <div className="h-2 w-full rounded-full bg-stone-100 dark:bg-stone-800 overflow-hidden">
+                  <div className="h-2 w-full rounded-full bg-stone-200 dark:bg-stone-800 overflow-hidden">
                     <div
                       className={`h-full rounded-full ${barColor} transition-all duration-500`}
                       style={{ width: `${score}%` }}
@@ -177,6 +222,16 @@ export const StudentAnalytics: React.FC<StudentAnalyticsProps> = ({
           ))}
         </div>
       </div>
+
+      {selectedMilestone && (
+        <DigitalBadgeModal
+          status={selectedMilestone}
+          studentName="Aarav Sharma"
+          institution="Delhi University • Faculty of Science"
+          enrollmentCode="STU-2026-081"
+          onClose={() => setSelectedMilestone(null)}
+        />
+      )}
     </div>
   );
 };

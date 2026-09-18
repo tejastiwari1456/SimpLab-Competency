@@ -1,13 +1,37 @@
-import React from 'react';
-import { User, Mail, Building, Key, ShieldCheck, Calendar, Lock } from 'lucide-react';
-import { CurrentUser } from '../../types';
+import React, { useState } from 'react';
+import { User, Mail, Building, Key, ShieldCheck, Calendar, Lock, Award, CheckCircle2 } from 'lucide-react';
+import { CurrentUser, CompetencyKey, StudentMilestoneStatus } from '../../types';
 import { RoleBadge } from '../common/RoleBadge';
+import { COMPETENCY_MILESTONES, getMilestoneStatuses } from '../../data/milestonesData';
+import { DigitalBadgeEmblem } from '../badges/DigitalBadgeEmblem';
+import { DigitalBadgeModal } from '../badges/DigitalBadgeModal';
 
 interface StudentProfileViewProps {
   currentUser: CurrentUser;
+  competencyScores?: Record<CompetencyKey, number>;
 }
 
-export const StudentProfileView: React.FC<StudentProfileViewProps> = ({ currentUser }) => {
+export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
+  currentUser,
+  competencyScores = {
+    setup_adherence: 95,
+    measurement_precision: 88,
+    data_interpretation: 94,
+    troubleshooting_safety: 90,
+    experimental_design: 92,
+  },
+}) => {
+  const [selectedMilestone, setSelectedMilestone] = useState<StudentMilestoneStatus | null>(null);
+
+  const milestoneStatuses = getMilestoneStatuses(
+    COMPETENCY_MILESTONES,
+    competencyScores,
+    currentUser.name,
+    currentUser.enrollmentCode
+  );
+
+  const unlockedBadges = milestoneStatuses.filter((s) => s.isUnlocked);
+
   return (
     <div id="student-profile-view" className="space-y-6 max-w-3xl mx-auto">
       <div className="rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-6 shadow-xs space-y-6">
@@ -64,6 +88,59 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({ currentU
           </div>
         </div>
       </div>
+
+      {/* Accredited Digital Badges Showcase */}
+      <div className="rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-6 shadow-xs space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Award className="h-4 w-4 text-amber-500" />
+            <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100">
+              Earned Competency Milestones & Badges
+            </h3>
+          </div>
+          <span className="rounded-full bg-amber-50 dark:bg-amber-950/80 px-2.5 py-0.5 text-xs font-bold text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+            {unlockedBadges.length} Verified Badges
+          </span>
+        </div>
+
+        <p className="text-xs text-stone-600 dark:text-stone-300">
+          Digital badges awarded upon crossing verified syllabus competency thresholds across laboratory apparatuses.
+        </p>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+          {unlockedBadges.slice(0, 8).map((status) => (
+            <div
+              key={status.milestone.id}
+              onClick={() => setSelectedMilestone(status)}
+              className="flex flex-col items-center text-center p-3 rounded-xl border border-stone-200/80 dark:border-stone-800 hover:border-amber-400 dark:hover:border-amber-500 bg-stone-50/50 dark:bg-stone-850/50 cursor-pointer transition-all hover:scale-102"
+            >
+              <DigitalBadgeEmblem
+                iconName={status.milestone.iconName}
+                tier={status.milestone.tier}
+                threshold={status.milestone.threshold}
+                isUnlocked={true}
+                size="sm"
+              />
+              <span className="mt-2 text-xs font-bold text-stone-900 dark:text-stone-100 line-clamp-1">
+                {status.milestone.shortTitle}
+              </span>
+              <span className="text-[10px] text-stone-500 dark:text-stone-400 capitalize">
+                {status.milestone.categoryLabel}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {selectedMilestone && (
+        <DigitalBadgeModal
+          status={selectedMilestone}
+          studentName={currentUser.name}
+          institution={currentUser.institution}
+          enrollmentCode={currentUser.enrollmentCode}
+          onClose={() => setSelectedMilestone(null)}
+        />
+      )}
     </div>
   );
 };

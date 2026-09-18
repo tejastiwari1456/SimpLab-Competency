@@ -261,7 +261,15 @@ export const TeacherReviewView: React.FC<TeacherReviewViewProps> = ({
                     <span className="capitalize font-medium text-stone-700 dark:text-stone-300">
                       {k.replace(/_/g, ' ')}
                     </span>
-                    <span className="font-bold text-stone-900 dark:text-stone-100">{score}%</span>
+                    <div className="flex items-center gap-2">
+                      {Number(score) >= 90 && (
+                        <span className="inline-flex items-center gap-1 rounded bg-amber-100 dark:bg-amber-950/80 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:text-amber-300 border border-amber-300/80 dark:border-amber-800">
+                          <Award className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                          <span>Gold Milestone (90%+)</span>
+                        </span>
+                      )}
+                      <span className="font-bold text-stone-900 dark:text-stone-100">{score}%</span>
+                    </div>
                   </div>
                 ))}
               </div>

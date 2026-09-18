@@ -86,10 +86,21 @@ export const StudentLayout: React.FC<StudentLayoutProps> = ({
           <StudentProgressView
             competencyScores={competencyScores}
             submissions={submissions}
+            currentUser={currentUser}
+            onPractice={(expId) => {
+              setSelectedExpId(expId);
+              onNavigate('/student/experiments');
+            }}
+            onTaskCompleted={onTaskCompleted}
           />
         );
       case '/student/profile':
-        return <StudentProfileView currentUser={currentUser} />;
+        return (
+          <StudentProfileView
+            currentUser={currentUser}
+            competencyScores={competencyScores}
+          />
+        );
       case '/student/dashboard':
       case '/student':
       default:

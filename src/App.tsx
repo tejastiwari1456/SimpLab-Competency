@@ -19,7 +19,16 @@ import {
   CompetencyKey,
   Assignment,
   StudentSubmission,
+  CompetencyMilestone,
+  StudentMilestoneStatus,
 } from './types';
+import {
+  detectNewlyUnlockedMilestones,
+  getMilestoneStatuses,
+  COMPETENCY_MILESTONES,
+} from './data/milestonesData';
+import { MilestoneCelebrationModal } from './components/badges/MilestoneCelebrationModal';
+import { DigitalBadgeModal } from './components/badges/DigitalBadgeModal';
 
 function AppContent() {
   const { user, role, token, isAuthenticated, isLoading, logout, refreshUser, setSession } = useAuth();
@@ -86,15 +95,33 @@ function AppContent() {
     experimental_design: 92,
   });
 
+  // Milestone celebration popup state
+  const [celebratedMilestone, setCelebratedMilestone] = useState<{
+    milestone: CompetencyMilestone;
+    score: number;
+  } | null>(null);
+  const [inspectedMilestone, setInspectedMilestone] = useState<StudentMilestoneStatus | null>(null);
+
   // Handle student task completion in virtual lab
   const handleTaskCompleted = (taskId: string, score: number, competency: CompetencyKey) => {
     setStudentCompetencyScores((prev) => {
       const currentVal = prev[competency] || 75;
-      const boost = Math.min(99, currentVal + Math.round(score * 0.2));
-      return {
+      const boost = Math.min(99, currentVal + Math.max(2, Math.round(score * 0.2)));
+      const nextScores = {
         ...prev,
         [competency]: boost,
       };
+
+      // Detect if crossing a milestone threshold (e.g. reaching 90 in measurement precision)
+      const newlyUnlocked = detectNewlyUnlockedMilestones(prev, nextScores);
+      if (newlyUnlocked.length > 0) {
+        setCelebratedMilestone({
+          milestone: newlyUnlocked[0],
+          score: boost,
+        });
+      }
+
+      return nextScores;
     });
   };
 
@@ -224,9 +251,11 @@ function AppContent() {
 
   // 5. Strict Role Application Shell Rendering
   // Conditional route & layout selection - absolutely NO CSS-based hiding or co-rendering
+  let layoutContent: React.ReactNode;
+
   switch (role) {
     case 'student':
-      return (
+      layoutContent = (
         <StudentLayout
           currentUser={user}
           currentPath={currentPath}
@@ -242,9 +271,10 @@ function AppContent() {
           onAllCompleted={handleAllTasksCompleted}
         />
       );
+      break;
 
     case 'teacher':
-      return (
+      layoutContent = (
         <TeacherLayout
           currentUser={user}
           currentPath={currentPath}
@@ -259,9 +289,10 @@ function AppContent() {
           onCreateAssignment={handleCreateAssignment}
         />
       );
+      break;
 
     case 'admin':
-      return (
+      layoutContent = (
         <AdminLayout
           currentUser={user}
           currentPath={currentPath}
@@ -272,16 +303,60 @@ function AppContent() {
           token={token}
         />
       );
+      break;
 
     default:
-      return (
+      layoutContent = (
         <UnauthorizedPage
           currentRole={role}
           attemptedPath={currentPath}
           onNavigate={navigateTo}
         />
       );
+      break;
   }
+
+  return (
+    <>
+      {layoutContent}
+
+      {/* Global Milestone Celebration Modal */}
+      {celebratedMilestone && (
+        <MilestoneCelebrationModal
+          milestone={celebratedMilestone.milestone}
+          newScore={celebratedMilestone.score}
+          onClose={() => setCelebratedMilestone(null)}
+          onViewBadge={(m) => {
+            const allStatuses = getMilestoneStatuses(
+              COMPETENCY_MILESTONES,
+              studentCompetencyScores,
+              user?.name,
+              user?.enrollmentCode
+            );
+            const targetStatus = allStatuses.find((s) => s.milestone.id === m.id);
+            if (targetStatus) {
+              setInspectedMilestone({ ...targetStatus, isUnlocked: true });
+            }
+          }}
+        />
+      )}
+
+      {/* Inspected Milestone Credential Modal */}
+      {inspectedMilestone && (
+        <DigitalBadgeModal
+          status={inspectedMilestone}
+          studentName={user?.name}
+          institution={user?.institution}
+          enrollmentCode={user?.enrollmentCode}
+          onClose={() => setInspectedMilestone(null)}
+          onPractice={(expId) => {
+            setInspectedMilestone(null);
+            navigateTo('/student/experiments');
+          }}
+        />
+      )}
+    </>
+  );
 }
 
 export default function App() {

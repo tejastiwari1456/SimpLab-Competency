@@ -34,23 +34,51 @@ export const TeacherClassesView: React.FC<TeacherClassesViewProps> = ({
 
   const currentClass = classes.find((c) => c.id === selectedClassId) || classes[0];
 
-  // Derive student mock roster for current class
-  const classStudents = submissions.map((sub, idx) => {
-    const avgScore = sub.totalScore;
-    let status: 'mastery' | 'competent' | 'needs_support' = 'competent';
-    if (avgScore >= 85) status = 'mastery';
-    else if (avgScore < 70) status = 'needs_support';
+  // Deduplicate and aggregate students from submissions to ensure unique roster entries
+  const classStudents = React.useMemo(() => {
+    const studentMap = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        lastActive: string;
+        experimentsCount: number;
+        totalScoreSum: number;
+        status: 'mastery' | 'competent' | 'needs_support';
+        radar: Record<string, number>;
+      }
+    >();
 
-    return {
-      id: sub.studentId,
-      name: sub.studentName,
-      lastActive: new Date(sub.submittedAt).toLocaleDateString(),
-      experimentsCount: 2 + (idx % 3),
-      avgScore,
-      status,
-      radar: sub.competencyScores,
-    };
-  });
+    submissions.forEach((sub) => {
+      const existing = studentMap.get(sub.studentId);
+      const subScore = sub.totalScore;
+      if (!existing) {
+        studentMap.set(sub.studentId, {
+          id: sub.studentId,
+          name: sub.studentName,
+          lastActive: new Date(sub.submittedAt).toLocaleDateString(),
+          experimentsCount: 1,
+          totalScoreSum: subScore,
+          status: subScore >= 85 ? 'mastery' : subScore < 70 ? 'needs_support' : 'competent',
+          radar: { ...sub.competencyScores },
+        });
+      } else {
+        existing.experimentsCount += 1;
+        existing.totalScoreSum += subScore;
+        const avg = Math.round(existing.totalScoreSum / existing.experimentsCount);
+        existing.status = avg >= 85 ? 'mastery' : avg < 70 ? 'needs_support' : 'competent';
+        if (new Date(sub.submittedAt).getTime() > new Date(existing.lastActive).getTime()) {
+          existing.lastActive = new Date(sub.submittedAt).toLocaleDateString();
+          existing.radar = { ...sub.competencyScores };
+        }
+      }
+    });
+
+    return Array.from(studentMap.values()).map((st) => ({
+      ...st,
+      avgScore: Math.round(st.totalScoreSum / st.experimentsCount),
+    }));
+  }, [submissions]);
 
   const filteredStudents = classStudents.filter((st) => {
     const matchesSearch =
@@ -202,7 +230,7 @@ export const TeacherClassesView: React.FC<TeacherClassesViewProps> = ({
             </thead>
             <tbody className="divide-y divide-stone-100 dark:divide-stone-800/60">
               {filteredStudents.map((st) => (
-                <tr key={st.id} className="hover:bg-stone-50/60 dark:hover:bg-stone-800/40 transition-colors">
+                <tr key={`roster-student-${st.id}`} className="hover:bg-stone-50/60 dark:hover:bg-stone-800/40 transition-colors">
                   <td className="px-4 py-3.5">
                     <div className="flex items-center gap-2.5">
                       <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-bold text-xs">

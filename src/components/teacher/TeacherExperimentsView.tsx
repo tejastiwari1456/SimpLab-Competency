@@ -23,13 +23,22 @@ export const TeacherExperimentsView: React.FC<TeacherExperimentsViewProps> = ({
   onNavigate,
   onQuickAssignExp,
 }) => {
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedSubject, setSelectedSubject] = useState<string>('all');
   const [selectedExpId, setSelectedExpId] = useState<string>(experiments[0]?.id || 'exp-convex-lens');
 
-  const categories = ['all', ...Array.from(new Set(experiments.map((e) => e.category)))];
+  const subjects = [
+    'all',
+    ...Array.from(
+      new Set(
+        experiments
+          .map((e) => e.subject)
+          .filter((sub): sub is string => Boolean(sub))
+      )
+    ),
+  ];
 
   const filtered = experiments.filter(
-    (e) => selectedCategory === 'all' || e.category === selectedCategory
+    (e) => selectedSubject === 'all' || e.subject === selectedSubject
   );
 
   const activeExp = experiments.find((e) => e.id === selectedExpId) || experiments[0];
@@ -64,20 +73,20 @@ export const TeacherExperimentsView: React.FC<TeacherExperimentsViewProps> = ({
         </button>
       </div>
 
-      {/* Category Pills */}
+      {/* Subject Filter Pills */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1">
-        {categories.map((cat) => (
+        {subjects.map((sub) => (
           <button
-            key={cat}
+            key={`subject-filter-${sub}`}
             type="button"
-            onClick={() => setSelectedCategory(cat)}
+            onClick={() => setSelectedSubject(sub)}
             className={`rounded-xl px-3.5 py-1.5 text-xs font-bold capitalize transition-all cursor-pointer whitespace-nowrap ${
-              selectedCategory === cat
+              selectedSubject === sub
                 ? 'bg-indigo-600 text-white shadow-xs'
                 : 'border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 text-stone-600 dark:text-stone-400 hover:bg-stone-50'
             }`}
           >
-            {cat === 'all' ? 'All Disciplines' : cat}
+            {sub === 'all' ? 'All Disciplines' : sub}
           </button>
         ))}
       </div>
@@ -90,7 +99,7 @@ export const TeacherExperimentsView: React.FC<TeacherExperimentsViewProps> = ({
             const isSelected = exp.id === activeExp?.id;
             return (
               <div
-                key={exp.id}
+                key={`exp-card-${exp.id}`}
                 onClick={() => setSelectedExpId(exp.id)}
                 className={`rounded-2xl border p-4 transition-all cursor-pointer text-left ${
                   isSelected
@@ -100,9 +109,9 @@ export const TeacherExperimentsView: React.FC<TeacherExperimentsViewProps> = ({
               >
                 <div className="flex items-center justify-between">
                   <span className="rounded-md bg-stone-100 dark:bg-stone-800 px-2 py-0.5 text-[10px] font-bold text-stone-600 dark:text-stone-400 uppercase tracking-wider">
-                    {exp.category}
+                    {exp.subject}
                   </span>
-                  <span className="text-[11px] font-mono text-stone-400">{exp.id}</span>
+                  <span className="text-[11px] font-mono text-stone-400">{exp.code || exp.id}</span>
                 </div>
                 <h4 className="mt-2 text-sm font-bold text-stone-900 dark:text-stone-100">
                   {exp.title}
@@ -113,7 +122,7 @@ export const TeacherExperimentsView: React.FC<TeacherExperimentsViewProps> = ({
 
                 <div className="mt-3 flex items-center justify-between text-xs pt-2 border-t border-stone-100 dark:border-stone-800">
                   <span className="text-stone-500 font-medium">
-                    {exp.apparatus?.length || 4} Apparatus Modules
+                    {exp.apparatusList?.length || 0} Apparatus Modules
                   </span>
                   <span className="font-semibold text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
                     Inspect <ArrowRight className="h-3 w-3" />
@@ -131,9 +140,9 @@ export const TeacherExperimentsView: React.FC<TeacherExperimentsViewProps> = ({
               <div>
                 <div className="flex items-center gap-2">
                   <span className="rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-300 font-bold px-2 py-0.5 text-xs">
-                    {activeExp.category}
+                    {activeExp.subject}
                   </span>
-                  <span className="text-xs text-stone-400 font-mono">{activeExp.id}</span>
+                  <span className="text-xs text-stone-400 font-mono">{activeExp.code || activeExp.id}</span>
                 </div>
                 <h3 className="text-lg font-bold text-stone-900 dark:text-stone-100 mt-1">
                   {activeExp.title}
@@ -171,19 +180,19 @@ export const TeacherExperimentsView: React.FC<TeacherExperimentsViewProps> = ({
                 Simulated Apparatus Components
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {activeExp.apparatus && activeExp.apparatus.length > 0 ? (
-                  activeExp.apparatus.map((item, idx) => (
+                {activeExp.apparatusList && activeExp.apparatusList.length > 0 ? (
+                  activeExp.apparatusList.map((itemName, idx) => (
                     <div
-                      key={idx}
+                      key={`apparatus-item-${activeExp.id}-${idx}`}
                       className="rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/60 p-3 text-xs"
                     >
                       <div className="flex items-center gap-2">
-                        <Sliders className="h-3.5 w-3.5 text-indigo-500" />
+                        <Sliders className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
                         <span className="font-bold text-stone-900 dark:text-stone-100">
-                          {item.name}
+                          {itemName}
                         </span>
                       </div>
-                      <p className="text-[11px] text-stone-500 mt-1">{item.description}</p>
+                      <p className="text-[11px] text-stone-500 mt-1">Calibrated virtual laboratory instrument</p>
                     </div>
                   ))
                 ) : (
@@ -198,6 +207,30 @@ export const TeacherExperimentsView: React.FC<TeacherExperimentsViewProps> = ({
                 )}
               </div>
             </div>
+
+            {/* Key Governing Equations */}
+            {activeExp.keyFormulas && activeExp.keyFormulas.length > 0 && (
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-2.5">
+                  Governing Theoretical Principles & Formulas
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {activeExp.keyFormulas.map((f, idx) => (
+                    <div
+                      key={`formula-${activeExp.id}-${idx}`}
+                      className="rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/50 p-2.5 text-xs"
+                    >
+                      <span className="text-[10px] text-stone-500 block font-bold uppercase tracking-wider">
+                        {f.label}
+                      </span>
+                      <span className="text-indigo-600 dark:text-indigo-400 font-mono font-bold text-xs mt-0.5 block">
+                        {f.formula}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Syllabus Competency Rubric Mapping */}
             <div>
