@@ -12,8 +12,10 @@ import {
 import { CompetencyKey, COMPETENCY_DIMENSIONS } from '../../types';
 
 interface CompetencyRadarProps {
-  scores: Record<CompetencyKey, number>;
+  scores?: Record<CompetencyKey, number>;
+  activeScores?: Record<CompetencyKey, number>;
   benchmarkScores?: Record<CompetencyKey, number>;
+  classAverageScores?: Record<CompetencyKey, number>;
   title?: string;
   studentName?: string;
   height?: number;
@@ -22,17 +24,30 @@ interface CompetencyRadarProps {
 
 export const CompetencyRadar: React.FC<CompetencyRadarProps> = ({
   scores,
+  activeScores,
   benchmarkScores,
+  classAverageScores,
   title,
   studentName = 'Current Score',
   height = 280,
   isDark = false,
 }) => {
+  const defaultScores: Record<CompetencyKey, number> = {
+    setup_adherence: 75,
+    measurement_precision: 75,
+    data_interpretation: 75,
+    troubleshooting_safety: 75,
+    experimental_design: 75,
+  };
+
+  const resolvedScores = scores || activeScores || defaultScores;
+  const resolvedBenchmark = benchmarkScores || classAverageScores;
+
   const chartData = (Object.keys(COMPETENCY_DIMENSIONS) as CompetencyKey[]).map((key) => ({
-    subject: COMPETENCY_DIMENSIONS[key].shortLabel,
-    fullLabel: COMPETENCY_DIMENSIONS[key].label,
-    studentScore: scores[key] || 0,
-    benchmarkScore: benchmarkScores ? benchmarkScores[key] || 0 : undefined,
+    subject: COMPETENCY_DIMENSIONS[key]?.shortLabel || key,
+    fullLabel: COMPETENCY_DIMENSIONS[key]?.label || key,
+    studentScore: resolvedScores?.[key] ?? 0,
+    benchmarkScore: resolvedBenchmark ? (resolvedBenchmark[key] ?? 0) : undefined,
   }));
 
   return (

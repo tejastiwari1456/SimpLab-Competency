@@ -97,11 +97,11 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       `"${s.studentName}"`,
       s.experimentId,
       s.totalScore,
-      s.competencyScores.setup_adherence,
-      s.competencyScores.measurement_precision,
-      s.competencyScores.data_interpretation,
-      s.competencyScores.troubleshooting_safety,
-      s.competencyScores.experimental_design,
+      s.competencyScores?.setup_adherence ?? 0,
+      s.competencyScores?.measurement_precision ?? 0,
+      s.competencyScores?.data_interpretation ?? 0,
+      s.competencyScores?.troubleshooting_safety ?? 0,
+      s.competencyScores?.experimental_design ?? 0,
       new Date(s.submittedAt).toLocaleDateString(),
     ]);
 
@@ -359,11 +359,11 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                       {sub.totalScore} / 100
                     </span>
                   </td>
-                  <td className="py-2.5 font-mono text-stone-600 dark:text-stone-400">{sub.competencyScores.setup_adherence}%</td>
-                  <td className="py-2.5 font-mono text-stone-600 dark:text-stone-400">{sub.competencyScores.measurement_precision}%</td>
-                  <td className="py-2.5 font-mono text-stone-600 dark:text-stone-400">{sub.competencyScores.data_interpretation}%</td>
-                  <td className="py-2.5 font-mono text-stone-600 dark:text-stone-400">{sub.competencyScores.troubleshooting_safety}%</td>
-                  <td className="py-2.5 font-mono text-stone-600 dark:text-stone-400">{sub.competencyScores.experimental_design}%</td>
+                  <td className="py-2.5 font-mono text-stone-600 dark:text-stone-400">{sub.competencyScores?.setup_adherence ?? 0}%</td>
+                  <td className="py-2.5 font-mono text-stone-600 dark:text-stone-400">{sub.competencyScores?.measurement_precision ?? 0}%</td>
+                  <td className="py-2.5 font-mono text-stone-600 dark:text-stone-400">{sub.competencyScores?.data_interpretation ?? 0}%</td>
+                  <td className="py-2.5 font-mono text-stone-600 dark:text-stone-400">{sub.competencyScores?.troubleshooting_safety ?? 0}%</td>
+                  <td className="py-2.5 font-mono text-stone-600 dark:text-stone-400">{sub.competencyScores?.experimental_design ?? 0}%</td>
                   <td className="py-2.5 text-right">
                     <button
                       type="button"

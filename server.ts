@@ -1,4 +1,5 @@
 import http from "http";
+import crypto from "crypto";
 import express, { Request, Response } from "express";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -6,6 +7,9 @@ import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
 import { createServer as createViteServer } from "vite";
 import { setupPairLabServer } from "./pairLabServer";
+import { authRouter } from "./auth.controller";
+import { requireAuth, requireRole, extractToken, AuthenticatedRequest } from "./auth.middleware";
+import { authService } from "./auth.service";
 
 dotenv.config();
 
@@ -15,7 +19,16 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = 3000;
 
-app.use(express.json());
+// Security Headers Middleware (Requirement 26)
+app.use((_req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  next();
+});
+
+// JSON Body Parser with safe payload size limit
+app.use(express.json({ limit: "1mb" }));
 
 // Lazy-initialized Gemini client with required User-Agent header
 let geminiClient: GoogleGenAI | null = null;
@@ -52,36 +65,23 @@ async function callGeminiWithResilience(
   const candidateModels = ["gemini-3.8-flash", "gemini-3.1-flash-lite"];
 
   for (const model of candidateModels) {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const response = await ai.models.generateContent({
-          model,
-          contents,
-          config,
-        });
-        const text = response.text?.trim();
-        if (text) {
-          return { text, source: model };
-        }
-      } catch (err: any) {
-        const errorMessage = err?.message || String(err);
-        const isTransient =
-          err?.status === 503 ||
-          errorMessage.includes("503") ||
-          errorMessage.includes("high demand") ||
-          errorMessage.includes("UNAVAILABLE") ||
-          err?.status === 429 ||
-          errorMessage.includes("RESOURCE_EXHAUSTED");
+    try {
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Timeout: Model call exceeded 3500ms")), 3500)
+      );
+      const generatePromise = ai.models.generateContent({
+        model,
+        contents,
+        config,
+      });
 
-        if (attempt === 0 && isTransient) {
-          // Brief pause before quick retry for transient capacity spikes
-          await new Promise((resolve) => setTimeout(resolve, 350));
-          continue;
-        }
-
-        console.warn(`[Gemini Resilience] ${model} unavailable (status: ${err?.status || 'transient'}). Trying fallback option...`);
-        break; // Move to next candidate model
+      const response = await Promise.race([generatePromise, timeoutPromise]);
+      const text = response.text?.trim();
+      if (text) {
+        return { text, source: model };
       }
+    } catch (err: any) {
+      console.warn(`[Gemini Resilience] ${model} unavailable (${err?.message || err?.status || 'transient'}). Trying next option...`);
     }
   }
 
@@ -403,6 +403,9 @@ let submissionsStore: AssignmentSubmissionRecord[] = [
 
 // --- API Endpoints ---
 
+// --- Authentication Endpoints (delegated to modular AuthController & AuthService) ---
+app.use("/api/auth", authRouter);
+
 // Health check
 app.get("/api/health", (_req: Request, res: Response) => {
   res.json({
@@ -617,12 +620,29 @@ app.get("/api/submissions", (_req: Request, res: Response) => {
   res.json({ submissions: submissionsStore });
 });
 
-app.post("/api/submissions", (req: Request, res: Response) => {
+app.post("/api/submissions", async (req: Request, res: Response) => {
+  // Anti-IDOR check (Requirement 29): If request includes valid auth token, bind directly to authenticated student identity
+  const token = extractToken(req);
+  let studentId = req.body.studentId || "stu-active";
+  let studentName = req.body.studentName || "Current Student";
+
+  if (token) {
+    try {
+      const verification = await authService.verifySession(token);
+      if (verification.valid && verification.user) {
+        studentId = verification.user.id;
+        studentName = verification.user.name;
+      }
+    } catch {
+      // Fall back gracefully if unauthenticated
+    }
+  }
+
   const newSub: AssignmentSubmissionRecord = {
     id: `sub-${Date.now()}`,
     assignmentId: req.body.assignmentId || "asg-custom",
-    studentId: req.body.studentId || "stu-active",
-    studentName: req.body.studentName || "Current Student",
+    studentId,
+    studentName,
     experimentId: req.body.experimentId,
     submittedAt: new Date().toISOString(),
     totalScore: req.body.totalScore || 85,
@@ -640,6 +660,144 @@ app.post("/api/submissions", (req: Request, res: Response) => {
   submissionsStore.unshift(newSub);
   res.status(201).json({ success: true, submission: newSub });
 });
+
+// ==============================================================================
+// ROLE-SCOPED SECURE ENDPOINTS (Requirements 4, 28, 29, 30)
+// ==============================================================================
+
+// 1. Student Scoped Endpoints (/api/student/*)
+app.get("/api/student/experiments", requireAuth, requireRole("student"), (req: AuthenticatedRequest, res: Response) => {
+  res.json({
+    success: true,
+    studentId: req.user!.id,
+    experiments: [
+      { id: "millikan-oil-drop", title: "Millikan's Oil Drop Experiment", status: "assigned", dueDate: "2026-10-15" },
+      { id: "photoelectric-effect", title: "Photoelectric Effect Lab", status: "in-progress", dueDate: "2026-10-20" },
+      { id: "franck-hertz", title: "Franck-Hertz Experiment", status: "completed", dueDate: "2026-09-30" },
+    ],
+  });
+});
+
+// IDOR Guard: Returns ONLY the authenticated student's own submissions
+app.get("/api/student/submissions", requireAuth, requireRole("student"), (req: AuthenticatedRequest, res: Response) => {
+  const studentSubs = submissionsStore.filter((sub) => sub.studentId === req.user!.id);
+  res.json({
+    success: true,
+    studentId: req.user!.id,
+    submissions: studentSubs,
+  });
+});
+
+app.get("/api/student/profile", requireAuth, requireRole("student"), (req: AuthenticatedRequest, res: Response) => {
+  res.json({
+    success: true,
+    profile: {
+      id: req.user!.id,
+      name: req.user!.name,
+      email: req.user!.email,
+      role: req.user!.role,
+      institution: req.user!.institution,
+      enrollmentCode: req.user!.enrollment_code,
+      competencies: {
+        setup_adherence: 92,
+        measurement_precision: 88,
+        data_interpretation: 90,
+        troubleshooting_safety: 95,
+        experimental_design: 87,
+      },
+    },
+  });
+});
+
+// 2. Teacher Scoped Endpoints (/api/teacher/*)
+app.get("/api/teacher/classes", requireAuth, requireRole("teacher"), (req: AuthenticatedRequest, res: Response) => {
+  res.json({
+    success: true,
+    teacherId: req.user!.id,
+    classes: [
+      { id: "cls-phys-301", name: "Advanced Physics Laboratory", studentCount: 28, term: "Fall 2026" },
+      { id: "cls-quant-401", name: "Quantum Mechanics Experiments", studentCount: 16, term: "Fall 2026" },
+    ],
+  });
+});
+
+app.get("/api/teacher/submissions", requireAuth, requireRole("teacher"), (_req: AuthenticatedRequest, res: Response) => {
+  res.json({
+    success: true,
+    submissions: submissionsStore,
+  });
+});
+
+app.post("/api/teacher/assignments", requireAuth, requireRole("teacher"), (req: AuthenticatedRequest, res: Response) => {
+  const { title, experimentId, dueDate, instructions } = req.body;
+  const assignment = {
+    id: `asg-${Date.now()}`,
+    teacherId: req.user!.id,
+    title: title || "New Lab Assignment",
+    experimentId: experimentId || "millikan-oil-drop",
+    dueDate: dueDate || new Date(Date.now() + 7 * 86400000).toISOString(),
+    instructions: instructions || "Complete the virtual simulation and submit your data analysis.",
+    createdAt: new Date().toISOString(),
+  };
+  res.status(201).json({ success: true, assignment });
+});
+
+// 3. Admin Scoped Endpoints (/api/admin/*)
+app.get("/api/admin/users", requireAuth, requireRole("admin"), async (_req: AuthenticatedRequest, res: Response) => {
+  try {
+    const client = await authService.getClient();
+    try {
+      const result = await client.query(
+        "SELECT id, email, name, role, status, institution, last_login_at, created_at FROM users ORDER BY created_at DESC;"
+      );
+      res.json({ success: true, users: result.rows });
+    } finally {
+      client.release();
+    }
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || "Failed to fetch users." });
+  }
+});
+
+app.get("/api/admin/audit-logs", requireAuth, requireRole("admin"), async (_req: AuthenticatedRequest, res: Response) => {
+  try {
+    const client = await authService.getClient();
+    try {
+      const result = await client.query(
+        "SELECT * FROM auth_events ORDER BY created_at DESC LIMIT 50;"
+      );
+      res.json({ success: true, logs: result.rows });
+    } finally {
+      client.release();
+    }
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || "Failed to fetch audit logs." });
+  }
+});
+
+app.patch("/api/admin/users/:id/status", requireAuth, requireRole("admin"), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const targetUserId = req.params.id;
+    const { status } = req.body;
+    if (!["ACTIVE", "SUSPENDED", "DISABLED"].includes(status)) {
+      res.status(400).json({ success: false, error: "Invalid status. Must be ACTIVE, SUSPENDED, or DISABLED." });
+      return;
+    }
+    const client = await authService.getClient();
+    try {
+      await client.query("UPDATE users SET status = $1, updated_at = NOW() WHERE id = $2;", [status, targetUserId]);
+      if (status !== "ACTIVE") {
+        await client.query("UPDATE sessions SET is_revoked = TRUE, status = 'REVOKED' WHERE user_id = $1;", [targetUserId]);
+      }
+      res.json({ success: true, message: `User status updated to ${status}.` });
+    } finally {
+      client.release();
+    }
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || "Failed to update status." });
+  }
+});
+
 
 // Vite middleware & WebSocket server setup
 async function startServer() {

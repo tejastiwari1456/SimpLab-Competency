@@ -1,4 +1,4 @@
-export type UserRole = 'student' | 'teacher';
+export type UserRole = 'student' | 'teacher' | 'admin';
 
 export type CompetencyKey =
   | 'setup_adherence'
@@ -184,4 +184,30 @@ export interface CurrentUser {
   role: UserRole;
   institution: string;
   enrollmentCode?: string;
+  createdAt?: string;
 }
+
+export interface AuthResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+  token?: string;
+  user?: CurrentUser;
+}
+
+export interface RegisterFormData {
+  email: string;
+  password: string;
+  confirmPassword?: string;
+  role: UserRole;
+  name: string;
+  institution: string;
+  enrollmentCode?: string;
+}
+
+export interface LoginFormData {
+  email: string;
+  password: string;
+  role?: UserRole;
+}
+

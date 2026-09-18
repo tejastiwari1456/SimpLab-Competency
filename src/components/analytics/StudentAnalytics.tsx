@@ -93,8 +93,8 @@ export const StudentAnalytics: React.FC<StudentAnalyticsProps> = ({
           <div className="space-y-3.5">
             {(Object.keys(COMPETENCY_DIMENSIONS) as CompetencyKey[]).map((key) => {
               const dim = COMPETENCY_DIMENSIONS[key];
-              const score = activeScores[key] || 0;
-              const avg = classAverageScores[key] || 70;
+              const score = activeScores?.[key] ?? 0;
+              const avg = classAverageScores?.[key] ?? 70;
               const isAhead = score >= avg;
 
               let barColor = 'bg-amber-500';

@@ -9,9 +9,12 @@ import {
   Compass,
   Sun,
   Moon,
+  LogIn,
+  LogOut,
+  UserPlus,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { UserRole } from '../types';
+import { UserRole, CurrentUser } from '../types';
 
 interface NavbarProps {
   currentRole: UserRole;
@@ -21,6 +24,10 @@ interface NavbarProps {
   geminiActive: boolean;
   isDark: boolean;
   onToggleDarkMode: () => void;
+  currentUser: CurrentUser | null;
+  currentPath: string;
+  onNavigate: (path: string) => void;
+  onLogout: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -31,13 +38,22 @@ export const Navbar: React.FC<NavbarProps> = ({
   geminiActive,
   isDark,
   onToggleDarkMode,
+  currentUser,
+  currentPath,
+  onNavigate,
+  onLogout,
 }) => {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-stone-200 dark:border-stone-800 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md transition-colors">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
         {/* Brand */}
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-stone-900 dark:bg-amber-500 text-amber-400 dark:text-stone-950 shadow-sm transition-colors">
+        <button
+          type="button"
+          id="navbar-brand-btn"
+          onClick={() => onNavigate('/')}
+          className="flex items-center gap-3 text-left focus:outline-none group cursor-pointer"
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-stone-900 dark:bg-amber-500 text-amber-400 dark:text-stone-950 shadow-sm group-hover:scale-105 transition-all">
             <FlaskConical className="h-5 w-5" />
           </div>
           <div>
@@ -53,86 +69,88 @@ export const Navbar: React.FC<NavbarProps> = ({
               Syllabus-Aligned Practical Competency & Assessment Engine
             </p>
           </div>
-        </div>
+        </button>
 
-        {/* Navigation Tabs */}
-        <nav className="flex items-center gap-1 rounded-lg border border-stone-200 dark:border-stone-800 bg-stone-100 dark:bg-stone-800/80 p-1 text-sm font-medium transition-colors">
-          {currentRole === 'student' ? (
-            <>
-              <button
-                type="button"
-                id="nav-tab-experiments"
-                onClick={() => onTabChange('experiments')}
-                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs sm:text-sm transition-all ${
-                  activeTab === 'experiments'
-                    ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 shadow-sm font-semibold'
-                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
-                }`}
-              >
-                <FlaskConical className="h-3.5 w-3.5" />
-                <span>Virtual Labs</span>
-              </button>
+        {/* Navigation Tabs (Only when on main lab page) */}
+        {currentPath === '/' && (
+          <nav className="hidden md:flex items-center gap-1 rounded-lg border border-stone-200 dark:border-stone-800 bg-stone-100 dark:bg-stone-800/80 p-1 text-sm font-medium transition-colors">
+            {currentRole === 'student' ? (
+              <>
+                <button
+                  type="button"
+                  id="nav-tab-experiments"
+                  onClick={() => onTabChange('experiments')}
+                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs sm:text-sm transition-all ${
+                    activeTab === 'experiments'
+                      ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 shadow-sm font-semibold'
+                      : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+                  }`}
+                >
+                  <FlaskConical className="h-3.5 w-3.5" />
+                  <span>Virtual Labs</span>
+                </button>
 
-              <button
-                type="button"
-                id="nav-tab-scenarios"
-                onClick={() => onTabChange('scenarios')}
-                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs sm:text-sm transition-all ${
-                  activeTab === 'scenarios'
-                    ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 shadow-sm font-semibold'
-                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
-                }`}
-              >
-                <Compass className="h-3.5 w-3.5" />
-                <span>Scenario Modules</span>
-              </button>
+                <button
+                  type="button"
+                  id="nav-tab-scenarios"
+                  onClick={() => onTabChange('scenarios')}
+                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs sm:text-sm transition-all ${
+                    activeTab === 'scenarios'
+                      ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 shadow-sm font-semibold'
+                      : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+                  }`}
+                >
+                  <Compass className="h-3.5 w-3.5" />
+                  <span>Scenario Modules</span>
+                </button>
 
-              <button
-                type="button"
-                id="nav-tab-competencies"
-                onClick={() => onTabChange('competencies')}
-                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs sm:text-sm transition-all ${
-                  activeTab === 'competencies'
-                    ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 shadow-sm font-semibold'
-                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
-                }`}
-              >
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                <span>My Competency Profile</span>
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                id="nav-tab-teacher-dashboard"
-                onClick={() => onTabChange('teacher-dashboard')}
-                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs sm:text-sm transition-all ${
-                  activeTab === 'teacher-dashboard'
-                    ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 shadow-sm font-semibold'
-                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
-                }`}
-              >
-                <Users className="h-3.5 w-3.5" />
-                <span>Class Roster & Analytics</span>
-              </button>
+                <button
+                  type="button"
+                  id="nav-tab-competencies"
+                  onClick={() => onTabChange('competencies')}
+                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs sm:text-sm transition-all ${
+                    activeTab === 'competencies'
+                      ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 shadow-sm font-semibold'
+                      : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+                  }`}
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <span>My Competency Profile</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  id="nav-tab-teacher-dashboard"
+                  onClick={() => onTabChange('teacher-dashboard')}
+                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs sm:text-sm transition-all ${
+                    activeTab === 'teacher-dashboard'
+                      ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 shadow-sm font-semibold'
+                      : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+                  }`}
+                >
+                  <Users className="h-3.5 w-3.5" />
+                  <span>Class Roster & Analytics</span>
+                </button>
 
-              <button
-                type="button"
-                id="nav-tab-teacher-assignments"
-                onClick={() => onTabChange('teacher-assignments')}
-                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs sm:text-sm transition-all ${
-                  activeTab === 'teacher-assignments'
-                    ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 shadow-sm font-semibold'
-                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
-                }`}
-              >
-                <BookOpen className="h-3.5 w-3.5" />
-                <span>Assignment Portal</span>
-              </button>
-            </>
-          )}
-        </nav>
+                <button
+                  type="button"
+                  id="nav-tab-teacher-assignments"
+                  onClick={() => onTabChange('teacher-assignments')}
+                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs sm:text-sm transition-all ${
+                    activeTab === 'teacher-assignments'
+                      ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 shadow-sm font-semibold'
+                      : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+                  }`}
+                >
+                  <BookOpen className="h-3.5 w-3.5" />
+                  <span>Assignment Portal</span>
+                </button>
+              </>
+            )}
+          </nav>
+        )}
 
         {/* Right Controls: Dark Mode, AI status & Role Switcher */}
         <div
@@ -254,21 +272,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </motion.button>
 
-          {/* AI Evaluator Status */}
-          <div
-            className="hidden items-center gap-1.5 rounded-full border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/70 px-2.5 py-1 text-xs text-stone-600 dark:text-stone-300 md:flex transition-colors"
-            title={
-              geminiActive
-                ? 'Gemini 3.8 Flash live for viva evaluation & hints'
-                : 'Rubric Evaluator engine active (set GEMINI_API_KEY for live LLM viva)'
-            }
-          >
-            <Sparkles className={`h-3.5 w-3.5 ${geminiActive ? 'text-amber-500' : 'text-emerald-500'}`} />
-            <span className="font-medium">
-              {geminiActive ? 'Gemini 3.8 Flash' : 'Rubric Viva AI'}
-            </span>
-          </div>
-
           {/* Role Switcher */}
           <div className="flex items-center rounded-lg border border-stone-200 dark:border-stone-800 bg-stone-100 dark:bg-stone-800/80 p-0.5 transition-colors">
             <button
@@ -278,13 +281,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onRoleChange('student');
                 if (activeTab.startsWith('teacher')) onTabChange('experiments');
               }}
-              className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold transition-all ${
                 currentRole === 'student'
                   ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 shadow-xs'
                   : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
               }`}
             >
-              <GraduationCap className="h-3.5 w-3.5" />
+              <GraduationCap className="h-3.5 w-3.5 text-amber-500" />
               <span>Student</span>
             </button>
             <button
@@ -294,18 +297,74 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onRoleChange('teacher');
                 if (!activeTab.startsWith('teacher')) onTabChange('teacher-dashboard');
               }}
-              className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold transition-all ${
                 currentRole === 'teacher'
                   ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 shadow-xs'
                   : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
               }`}
             >
-              <Users className="h-3.5 w-3.5" />
-              <span>Instructor</span>
+              <Users className="h-3.5 w-3.5 text-amber-500" />
+              <span>Faculty</span>
             </button>
           </div>
+
+          {/* User Profile / Auth Action */}
+          {currentUser ? (
+            <div className="flex items-center gap-1">
+              <div
+                className="flex items-center gap-1.5 rounded-lg border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-800 px-2 py-1 text-xs shadow-xs"
+                title={`${currentUser.name} • ${currentUser.institution || currentUser.email}`}
+              >
+                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-stone-900 dark:bg-amber-500 text-[10px] font-bold text-amber-400 dark:text-stone-950">
+                  {currentUser.name.charAt(0).toUpperCase()}
+                </div>
+                <span className="hidden sm:inline-block max-w-[80px] truncate font-medium text-stone-800 dark:text-stone-200">
+                  {currentUser.name.split(' ')[0]}
+                </span>
+              </div>
+              <button
+                type="button"
+                id="navbar-logout-btn"
+                onClick={onLogout}
+                title="Sign out of your account"
+                className="flex items-center justify-center rounded-lg border border-stone-200 dark:border-stone-800 bg-stone-100 dark:bg-stone-800 p-1.5 text-stone-600 dark:text-stone-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                id="navbar-login-btn"
+                onClick={() => onNavigate('/login')}
+                className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
+                  currentPath === '/login'
+                    ? 'bg-amber-500 text-stone-950 shadow-xs'
+                    : 'border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-700'
+                }`}
+              >
+                <LogIn className="h-3.5 w-3.5" />
+                <span>Sign In</span>
+              </button>
+              <button
+                type="button"
+                id="navbar-register-btn"
+                onClick={() => onNavigate('/register')}
+                className={`hidden sm:flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
+                  currentPath === '/register'
+                    ? 'bg-amber-500 text-stone-950 shadow-xs'
+                    : 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 hover:bg-stone-800 dark:hover:bg-white'
+                }`}
+              >
+                <UserPlus className="h-3.5 w-3.5" />
+                <span>Register</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>
   );
 };
+
